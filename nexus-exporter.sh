@@ -384,10 +384,6 @@ generate_vrepo() {
 process_blobs() {
 	echo "Processing blobs..."
 
-	if [[ $generate_csv == 1 ]]; then
-		echo "sha1,size,deleted,creationTime,blobName,groupId,artifactId,version,type,qualifier,contentType,repoName,store,volume,chapter" > ${csv_file};
-	if
-
 	for dir in ${root_dir}/*; do
 		dirname=$(basename $dir);
 		if [[ ( $skip_proxies == 1 ) && ( ${dirname##*-} == "proxy" ) ]]; then
@@ -396,6 +392,10 @@ process_blobs() {
 		vrepo_dir="${repo_dir}/${dirname}"
 		backup_dir="${export_dir}/${dirname}"
 		export_file="${export_dir}/${dirname}.sql"
+		csv_file="${export_dir}/${dirname}.csv"
+		if [[ $generate_csv == 1 ]]; then
+			echo "sha1,size,deleted,creationTime,blobName,groupId,artifactId,version,type,qualifier,contentType,repoName,store,volume,chapter" > ${csv_file};
+		if
 		mkdir -p ${backup_dir};
 		rm ${export_file} &> /dev/null;
 		echo -e "\tProcessing \"${dirname}\"...";
@@ -552,16 +552,21 @@ process_blobs() {
 
 						if [[ ( $skip_deploy == 0 ) && ( ${dirname:0:5} == maven ) && ( ${dirname##*-} != proxy ) ]]; then
 							# do not generate poms to avoid fails on actual pom upload
-							# also we will only try to upload sources and javadoc for jar files
-							if [[ ( $type == jar ) && ( $qualifier != "java-source" ) && ( ${qualifier} != "javadoc" ) && ( $has_sources == 1 ) && ( $has_javadoc == 1) ]]; then
-								mvn -nsu -B -ntp deploy:deploy-file -DgeneratePom=false -DgroupId=${group_id} -DartifactId=${artifact_id} -Dversion=${version} -Dpackaging=${packaging} -Dfile=${bin_file} -Djavadoc=${fjavadoc} -Dsources=${fsources} -DrepositoryId=${repo_id} -Durl=${repo_url} &> /dev/null;
-							elif [[ ( $type == jar ) && ( $qualifier != "java-source" ) && ( ${qualifier} != "javadoc" ) && ( $has_sources == 0 ) && ( $has_javadoc == 1) ]]; then
-								mvn -nsu -B -ntp deploy:deploy-file -DgeneratePom=false -DgroupId=${group_id} -DartifactId=${artifact_id} -Dversion=${version} -Dpackaging=${packaging} -Dfile=${bin_file} -Djavadoc=${fjavadoc} -DrepositoryId=${repo_id} -Durl=${repo_url} &> /dev/null;
-							elif [[ ( $type == jar ) && ( $qualifier != "java-source" ) && ( ${qualifier} != "javadoc" ) && ( $has_sources == 1 ) && ( $has_javadoc == 0) ]]; then
-								mvn -nsu -B -ntp deploy:deploy-file -DgeneratePom=false -DgroupId=${group_id} -DartifactId=${artifact_id} -Dversion=${version} -Dpackaging=${packaging} -Dfile=${bin_file} -Dsources=${fsources} -DrepositoryId=${repo_id} -Durl=${repo_url} &> /dev/null;
-							else
-								mvn -nsu -B -ntp deploy:deploy-file -DgeneratePom=false -DgroupId=${group_id} -DartifactId=${artifact_id} -Dversion=${version} -Dpackaging=${packaging} -Dfile=${bin_file} -DrepositoryId=${repo_id} -Durl=${repo_url} &> /dev/null;
+							cmd="mvn -nsu -B -ntp deploy:deploy-file -DgeneratePom=false -DgroupId=${group_id} -DartifactId=${artifact_id} -Dversion=${version} -Dpackaging=${packaging} -Dfile=${bin_file} -DrepositoryId=${repo_id} -Durl=${repo_url}";
+							if [[ ${#qualifier} > 0 ]]; then
+								cmd="${cmd} -Dclassifier=${qualifier}";
 							fi
+							# also we will only try to upload sources and javadoc for jar files
+							if [[ ( $type == jar ) && ( $qualifier != "java-source" ) && ( ${qualifier} != "javadoc" ) ]]; then
+								if [[ $has_sources == 1 ]]; then
+									cmd="${cmd} -Dsources=${fsources}";
+								fi
+								if [[ $has_javadoc == 1 ]]; then
+									cmd="${cmd} -Djavadoc=${fjavadoc}";
+								fi
+							fi
+							cmd="${cmd} &> /dev/null";
+							eval ${cmd};
 							if [[ $? == 0 ]]; then
 								print_ok;
 							else
@@ -609,3 +614,5 @@ generate_vrepo;
 # then process blobs
 process_blobs;
 
+echo
+echo "Script finished.";
