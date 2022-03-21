@@ -395,7 +395,7 @@ process_blobs() {
 		csv_file="${export_dir}/${dirname}.csv"
 		if [[ $generate_csv == 1 ]]; then
 			echo "sha1,size,deleted,creationTime,blobName,groupId,artifactId,version,type,qualifier,contentType,repoName,store,volume,chapter" > ${csv_file};
-		if
+		fi
 		mkdir -p ${backup_dir};
 		rm ${export_file} &> /dev/null;
 		echo -e "\tProcessing \"${dirname}\"...";
